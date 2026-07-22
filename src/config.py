@@ -47,7 +47,7 @@ DEFAULTS: dict[str, Any] = {
         "max_reviews_per_extraction": 80,
         "review_chars_for_extraction": 300,
     },
-    "report": {"top_n": 5, "trend_unit": "day"},
+    "report": {"top_n": 5, "trend_unit": "week"},
     "alert": {"days": 7, "threshold": 1.5, "min_reviews": 5},
     "viz": {
         "dpi": 130,

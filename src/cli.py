@@ -148,6 +148,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="리포트 저장 형식")
     p_dash.add_argument("--top-n", type=int, default=None, help="TOP N 개수")
     p_dash.add_argument("--no-charts", action="store_true", help="차트 생성 생략")
+    p_dash.add_argument("--trend-unit", choices=["day", "week"], default=None,
+                        help="감정 추이 집계 단위 (기본: config.json)")
     p_dash.add_argument("--html", action="store_true",
                         help="[보너스] 차트를 내장한 단일 HTML 대시보드도 생성")
     p_dash.add_argument("--date-from", default=None)

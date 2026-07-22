@@ -27,7 +27,7 @@
   },
   "report": {
     "top_n": 5,
-    "trend_unit": "day"
+    "trend_unit": "week"
   },
   "alert": {
     "days": 7,
