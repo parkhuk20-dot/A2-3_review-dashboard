@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from src import alert as alert_module
 from src import config as config_module
 from src import visualize
 from src.db import Database
@@ -141,6 +142,14 @@ def build_report(
             add(f"- {stars(rating)} ({rating}점): {count}건 ({ratio:.1f}%)")
     else:
         add("- 별점 정보가 있는 리뷰가 없습니다.")
+    add("")
+
+    # -------------------------------------------------- 감정 변화 알림(보너스)
+    add("## 감정 변화 알림")
+    add("")
+    spike = alert_module.detect_spike(db, cfg, **filters)
+    for line in alert_module.format_alert(spike):
+        add(line)
     add("")
 
     # ------------------------------------------------------------ 품질 지표
