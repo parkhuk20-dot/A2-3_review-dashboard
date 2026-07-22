@@ -1,0 +1,53 @@
+{
+  "_comment": "API 키는 이 파일에 절대 넣지 않는다. .env 의 OPENAI_API_KEY 또는 환경변수로만 전달한다.",
+  "import": {
+    "default_encoding": "utf-8-sig",
+    "column_aliases": {
+      "review_text": ["review_text", "review", "text", "content", "body", "리뷰", "리뷰내용", "내용", "후기"],
+      "rating": ["rating", "score", "star", "stars", "별점", "평점", "점수"],
+      "review_date": ["review_date", "date", "created_at", "written_at", "작성일", "날짜", "등록일"],
+      "product": ["product", "product_name", "item", "제품", "제품명", "상품", "상품명"],
+      "category": ["category", "cat", "카테고리", "분류"]
+    }
+  },
+  "clean": {
+    "dedup_policy": "skip",
+    "min_length": 10,
+    "rating_min": 1,
+    "rating_max": 5,
+    "strip_html": true
+  },
+  "ai": {
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "temperature": 0.2,
+    "batch_size": 10,
+    "max_reviews_per_extraction": 80,
+    "review_chars_for_extraction": 300
+  },
+  "report": {
+    "top_n": 5,
+    "trend_unit": "day"
+  },
+  "alert": {
+    "days": 7,
+    "threshold": 1.5,
+    "min_reviews": 5
+  },
+  "viz": {
+    "dpi": 130,
+    "figsize": [9, 5.5],
+    "palette": {
+      "positive": "#2E86DE",
+      "neutral": "#95A5A6",
+      "negative": "#E74C3C"
+    }
+  },
+  "paths": {
+    "db": "data/reviews.db",
+    "charts": "output/charts",
+    "reports": "output/reports",
+    "exports": "output/exports",
+    "log": "logs/dashboard.log"
+  }
+}
