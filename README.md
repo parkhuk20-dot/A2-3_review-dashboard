@@ -6,7 +6,7 @@
 단순 감정 분류에서 끝나지 않고 **시간에 따른 감정 변화 추이 · 불만/칭찬 키워드 ·
 별점과 감정의 상관관계**까지 뽑아, 비즈니스 의사결정에 바로 쓸 수 있는 형태로 만듭니다.
 
-> 2026 Codyssey A2-3 과제 · Python 3.10+ · OpenAI API
+> 2026 Codyssey A2-1 과제 · Python 3.10+ · OpenAI API
 
 ---
 
@@ -303,7 +303,7 @@ python main.py stats --config config.local.json     # 둘 다 같게 동작
 ## 프로젝트 구조
 
 ```
-A2-3_review-dashboard/
+A2-1_review-dashboard/
 ├── main.py                   # 엔트리포인트
 ├── config.json               # 설정 (API 키 미포함)
 ├── config.example.json

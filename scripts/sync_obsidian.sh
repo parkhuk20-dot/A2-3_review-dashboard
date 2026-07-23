@@ -20,7 +20,7 @@ mkdir -p "$(dirname "$VAULT_NOTE")"
   echo "Tags: #project #bootcamp #python #cli #ai #sentiment #dashboard"
   echo
   echo "> 이 노트는 저장소 \`docs/PLAN.md\` 에서 자동 동기화됩니다. (마지막 동기화: $(date '+%Y-%m-%d %H:%M'))"
-  echo "> 저장소: \`~/Desktop/codyssey/A2-3_review-dashboard\`"
+  echo "> 저장소: \`~/Desktop/codyssey/A2-1_review-dashboard\`"
   echo
   cat "$SRC"
 } > "$VAULT_NOTE"

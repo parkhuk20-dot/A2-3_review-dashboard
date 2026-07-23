@@ -1,12 +1,12 @@
-# 프로젝트: AI 기반 고객 리뷰 감정 분석 대시보드 (A2-3)
+# 프로젝트: AI 기반 고객 리뷰 감정 분석 대시보드 (A2-1)
 
 > 이 문서는 **작업 재개용 단일 진실 소스**입니다. 저장소(`docs/PLAN.md`)와 Obsidian 노트를 항상 같은 내용으로 유지합니다.
 
 ## 개요
 
-- 목표: 고객 리뷰를 파일에서 수집 → 정제 → AI 감정 분석 → 키워드·요약 추출 → 대시보드 시각화·리포트·내보내기까지 잇는 **CLI 기반 리뷰 분석 서비스** (2026 Codyssey A2-3 과제)
+- 목표: 고객 리뷰를 파일에서 수집 → 정제 → AI 감정 분석 → 키워드·요약 추출 → 대시보드 시각화·리포트·내보내기까지 잇는 **CLI 기반 리뷰 분석 서비스** (2026 Codyssey A2-1 과제)
 - 상태: **구현·검증 완료** (필수 13/13, 보너스 4/4, OpenAI 실호출까지 검증 완료)
-- 저장소: `~/Desktop/codyssey/A2-3_review-dashboard` → https://github.com/parkhuk20-dot/A2-3_review-dashboard (public)
+- 저장소: `~/Desktop/codyssey/A2-1_review-dashboard` → https://github.com/parkhuk20-dot/A2-1_review-dashboard (public)
 - 실행 환경: Python 3.12 (`.venv`) — 시스템 python3는 3.9라 과제 요구(3.10+) 미달
 - AI: OpenAI (`openai` SDK, `gpt-4o-mini`), 키는 `.env` 의 `OPENAI_API_KEY`
 - 데이터 입력: **파일 기반만** (CSV / Excel). 크롤링은 과제 제약상 금지
@@ -42,7 +42,7 @@
 ## 아키텍처
 
 ```
-A2-3_review-dashboard/
+A2-1_review-dashboard/
 ├── main.py                  # 엔트리포인트: argparse 서브커맨드 라우팅
 ├── config.json              # 중복 정책, 정제 규칙, 시각화·알림 옵션 (키 미포함)
 ├── config.example.json      # 커밋용 예시
@@ -244,7 +244,7 @@ CREATE TABLE import_log (
 ### 2026-07-22 (계획 수립 · 환경 준비)
 
 1. 과제 브리프 검토 후 개발 계획서 확정.
-2. 저장소 위치를 `~/Desktop/codyssey/A2-3_review-dashboard` 로 결정(처음엔 A2-2 저장소 안에 폴더가 생성돼 중첩 repo가 될 뻔했음). `git init` 완료.
+2. 저장소 위치를 `~/Desktop/codyssey/A2-1_review-dashboard` 로 결정(처음엔 A2-2 저장소 안에 폴더가 생성돼 중첩 repo가 될 뻔했음). `git init` 완료.
 3. Python 3.12 venv 생성 + `openai`·`matplotlib`·`openpyxl` 설치 완료.
 4. GitHub public 저장소 연결 예정(`gh` CLI 인증 확인됨).
 
@@ -315,7 +315,7 @@ CREATE TABLE import_log (
 ## 재개용 요약 (다음 세션은 이것만 봐도 됨)
 
 ```bash
-cd ~/Desktop/codyssey/A2-3_review-dashboard
+cd ~/Desktop/codyssey/A2-1_review-dashboard
 .venv/bin/python main.py import --file data/sample_reviews.csv   # 수집
 .venv/bin/python main.py clean                                    # 정제
 .venv/bin/python main.py analyze --unanalyzed                     # AI 감정 분석
