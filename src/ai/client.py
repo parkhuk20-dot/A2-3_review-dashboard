@@ -11,6 +11,7 @@ import json
 import logging
 from typing import Any
 
+from src.ai.usage import UsageTracker
 from src.retry import retry
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,8 @@ class AIClient:
         self.temperature = ai_cfg.get("temperature", 0.2)
         self.mock = mock
         self._client = None
+        # 병렬 호출에서도 안전하게 누적되도록 락을 가진 추적기를 쓴다.
+        self.usage = UsageTracker(self.model_name, ai_cfg.get("pricing"))
 
         if self.mock:
             logger.info("mock 모드: AI API 를 호출하지 않고 규칙 기반 결과를 사용합니다.")
@@ -66,6 +69,15 @@ class AIClient:
                 {"role": "user", "content": user},
             ],
         )
+
+        # 사용량은 응답에만 들어 있어 여기서 걷어둔다. 없더라도 호출은 실패시키지 않는다.
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            self.usage.add(
+                getattr(usage, "prompt_tokens", 0) or 0,
+                getattr(usage, "completion_tokens", 0) or 0,
+            )
+
         return response.choices[0].message.content or ""
 
     def complete_json(self, system: str, user: str) -> dict[str, Any]:

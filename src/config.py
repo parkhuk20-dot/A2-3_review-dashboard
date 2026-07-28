@@ -46,6 +46,13 @@ DEFAULTS: dict[str, Any] = {
         "batch_size": 10,
         "max_reviews_per_extraction": 80,
         "review_chars_for_extraction": 300,
+        # 리뷰당 1회 호출이라 건수에 비례해 느려진다. 동시 실행으로 겹쳐 부른다.
+        "concurrency": 8,
+        # 100만 토큰당 USD. 공급자 가격표가 바뀌면 여기만 고치면 된다.
+        "pricing": {
+            "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+            "gpt-4o": {"input": 2.50, "output": 10.00},
+        },
     },
     "absa": {
         "aspects": ["배송", "품질", "가격", "고객서비스", "사용성", "디자인"],

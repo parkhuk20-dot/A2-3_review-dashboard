@@ -87,6 +87,17 @@ CREATE TABLE IF NOT EXISTS aspects (
     UNIQUE(review_id, aspect)
 );
 
+CREATE TABLE IF NOT EXISTS api_usage (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    command           TEXT,
+    model             TEXT,
+    calls             INTEGER,
+    prompt_tokens     INTEGER,
+    completion_tokens INTEGER,
+    cost_usd          REAL,
+    created_at        TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS import_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     source_file TEXT,
@@ -361,6 +372,58 @@ class Database:
             "reviews": int(self.scalar("SELECT COUNT(DISTINCT review_id) FROM aspects") or 0),
             "rows": int(self.scalar("SELECT COUNT(*) FROM aspects") or 0),
         }
+
+    # ------------------------------------------------------- API 사용량 기록
+
+    def save_usage(self, record: dict[str, Any]) -> int | None:
+        """한 번의 명령 실행에서 쓴 토큰·비용을 남긴다.
+
+        호출이 0건이면(mock 실행 등) 기록하지 않는다 — 빈 행만 쌓여 누적 조회가 지저분해진다.
+        """
+        if not record.get("calls"):
+            return None
+
+        cur = self.conn.execute(
+            """
+            INSERT INTO api_usage
+                (command, model, calls, prompt_tokens, completion_tokens, cost_usd, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (record.get("command"), record.get("model"), record.get("calls"),
+             record.get("prompt_tokens"), record.get("completion_tokens"),
+             record.get("cost_usd"), now()),
+        )
+        self.conn.commit()
+        return int(cur.lastrowid)
+
+    def usage_totals(self) -> dict[str, Any]:
+        """전체 누적 사용량."""
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(calls),0) AS calls,"
+            " COALESCE(SUM(prompt_tokens),0) AS prompt_tokens,"
+            " COALESCE(SUM(completion_tokens),0) AS completion_tokens,"
+            " SUM(cost_usd) AS cost_usd, COUNT(*) AS runs FROM api_usage"
+        ).fetchone()
+        result = dict(row)
+        result["total_tokens"] = result["prompt_tokens"] + result["completion_tokens"]
+        return result
+
+    def usage_by_command(self) -> list[dict[str, Any]]:
+        """명령별 누적 사용량. 어디에 비용이 몰리는지 보기 위함."""
+        rows = self.conn.execute(
+            "SELECT command, model, COUNT(*) AS runs, SUM(calls) AS calls,"
+            " SUM(prompt_tokens) AS prompt_tokens,"
+            " SUM(completion_tokens) AS completion_tokens,"
+            " SUM(cost_usd) AS cost_usd"
+            " FROM api_usage GROUP BY command, model ORDER BY SUM(calls) DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def recent_usage(self, limit: int = 5) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT * FROM api_usage ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def save_extraction(self, record: dict[str, Any]) -> int:
         cur = self.conn.execute(

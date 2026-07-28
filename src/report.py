@@ -16,6 +16,7 @@ from typing import Any
 from src import alert as alert_module
 from src import config as config_module
 from src.ai import aspects as aspects_module
+from src.ai import usage as usage_module
 from src import mismatch as mismatch_module
 from src import visualize
 from src.db import Database
@@ -263,6 +264,15 @@ def build_report(
             add("")
             add(extraction["suggestions"])
             add("")
+
+    # ------------------------------------------------------- API 사용량
+    usage_totals = db.usage_totals()
+    if usage_totals.get("calls"):
+        add("## API 사용량")
+        add("")
+        for line in usage_module.build_lines(usage_totals, db.usage_by_command()):
+            add(line)
+        add("")
 
     # ------------------------------------------------------------ 차트 목록
     add("## 생성된 차트")

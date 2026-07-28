@@ -14,6 +14,7 @@ from typing import Any
 
 from src import config as config_module
 from src.ai.client import AIClient, AIError
+from src.ai.parallel import map_concurrent, resolve_workers
 from src.ai.sentiment import normalize_label, normalize_score
 from src.db import Database
 
@@ -162,8 +163,8 @@ def analyze_one(
 def analyze_aspects(
     db: Database, cfg: dict[str, Any], mock: bool = False,
     mode: str = "unanalyzed", review_id: int | None = None,
-    limit: int | None = None, **filters,
-) -> dict[str, int]:
+    limit: int | None = None, workers: int | None = None, **filters,
+) -> dict[str, Any]:
     """대상 리뷰의 속성별 감정을 분석해 저장한다."""
     client = AIClient(cfg, mock=mock)
     aspect_list = resolve_aspects(cfg)
@@ -173,37 +174,43 @@ def analyze_aspects(
 
     if not targets:
         logger.info("속성 분석할 리뷰가 없습니다. (이미 모두 분석되었거나 조건에 맞는 리뷰가 없음)")
-        return {"target": 0, "success": 0, "failed": 0, "no_aspect": 0, "rows": 0}
+        return {"target": 0, "success": 0, "failed": 0, "no_aspect": 0,
+                "rows": 0, "usage": client.usage}
 
-    logger.info("속성 분석 대상: %d건 (속성 %s / 모델=%s)",
-                len(targets), "·".join(aspect_list), client.model_name)
+    worker_count = 1 if mock else resolve_workers(cfg, workers)
+    total = len(targets)
+    logger.info("속성 분석 대상: %d건 (속성 %s / 모델=%s, 동시 %d)",
+                total, "·".join(aspect_list), client.model_name, worker_count)
+
+    def work(row):
+        return analyze_one(client, row["review_text"], row["rating"],
+                           row["lang"], aspect_list)
 
     success = failed = no_aspect = rows = 0
-    total = len(targets)
+    done = 0
 
-    for index, row in enumerate(targets, start=1):
-        try:
-            items = analyze_one(client, row["review_text"], row["rating"],
-                                row["lang"], aspect_list)
-        except AIError as exc:
+    # 호출은 병렬로, 저장은 주 스레드에서.
+    for row, items, error in map_concurrent(targets, work, workers=worker_count):
+        done += 1
+        if error is not None:
             failed += 1
             logger.error("[%d/%d] ID=%s 속성 분석 실패 — 건너뜁니다: %s",
-                         index, total, row["id"], exc)
+                         done, total, row["id"], error)
             continue
 
         if not items:
             # 어떤 속성도 언급되지 않은 리뷰("좋아요" 같은)는 정상적인 결과다.
             no_aspect += 1
-            logger.debug("[%d/%d] ID=%s 언급된 속성 없음", index, total, row["id"])
+            logger.debug("[%d/%d] ID=%s 언급된 속성 없음", done, total, row["id"])
             continue
 
         rows += db.save_aspects(row["id"], items, client.model_name)
         success += 1
         summary = ", ".join(f"{i['aspect']}:{i['sentiment'][:3]}" for i in items)
-        logger.info("[%d/%d] ID=%s → %s", index, total, row["id"], summary)
+        logger.info("[%d/%d] ID=%s → %s", done, total, row["id"], summary)
 
     return {"target": total, "success": success, "failed": failed,
-            "no_aspect": no_aspect, "rows": rows}
+            "no_aspect": no_aspect, "rows": rows, "usage": client.usage}
 
 
 # ------------------------------------------------------------------ 집계 출력
@@ -286,15 +293,17 @@ def cmd_aspects(args, cfg: dict[str, Any]) -> int:
         with Database(db_path) as db:
             if mode is not None:
                 stats_run = analyze_aspects(
-                    db, cfg, mock=args.mock, mode=mode,
-                    review_id=args.id, limit=args.limit, **filters,
+                    db, cfg, mock=args.mock, mode=mode, review_id=args.id,
+                    limit=args.limit, workers=getattr(args, "workers", None), **filters,
                 )
+                db.save_usage(stats_run["usage"].as_record("aspects"))
                 if stats_run["target"]:
                     logger.info(
                         "속성 분석 완료: %d건 성공(속성 %d개 저장), %d건 실패, %d건 속성 없음",
                         stats_run["success"], stats_run["rows"],
                         stats_run["failed"], stats_run["no_aspect"],
                     )
+                    logger.info("%s", stats_run["usage"].summary())
 
             stats = db.aspect_stats(**filters)
             coverage = db.aspect_coverage()

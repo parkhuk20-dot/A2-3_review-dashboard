@@ -14,6 +14,7 @@ from typing import Any
 
 from src import config as config_module
 from src.ai.client import AIClient, AIError
+from src.ai.parallel import map_concurrent, resolve_workers
 from src.db import Database
 
 logger = logging.getLogger(__name__)
@@ -135,34 +136,43 @@ def analyze_one(client: AIClient, text: str, rating: int | None, lang: str | Non
 def analyze_reviews(
     db: Database, cfg: dict[str, Any], mock: bool = False,
     mode: str = "unanalyzed", review_id: int | None = None,
-    limit: int | None = None, **filters,
+    limit: int | None = None, workers: int | None = None, **filters,
 ) -> dict[str, int]:
     """대상 리뷰를 골라 감정 분석하고 결과를 저장한다."""
     client = AIClient(cfg, mock=mock)
     targets = db.fetch_for_analysis(mode=mode, review_id=review_id, limit=limit, **filters)
 
+    # 기본(unanalyzed) 모드에서만 기분석 건을 건너뛴다.
+    # --all / --id 는 사용자가 재분석을 명시한 것이므로 다시 호출한다.
+    skipped = 0
+    if mode == "unanalyzed":
+        pending = [r for r in targets if r["sentiment"] is None]
+        skipped = len(targets) - len(pending)
+        targets = pending
+
     if not targets:
         logger.info("분석할 리뷰가 없습니다. (이미 모두 분석되었거나 조건에 맞는 리뷰가 없음)")
-        return {"target": 0, "success": 0, "failed": 0, "skipped": 0}
+        return {"target": 0, "success": 0, "failed": 0, "skipped": skipped,
+                "usage": client.usage}
 
-    logger.info("분석 대상: %d건 (모델=%s)", len(targets), client.model_name)
-
-    success = failed = skipped = 0
+    # mock 은 네트워크를 타지 않으므로 스레드를 띄울 이유가 없다.
+    worker_count = 1 if mock else resolve_workers(cfg, workers)
     total = len(targets)
+    logger.info("분석 대상: %d건 (모델=%s, 동시 %d)", total, client.model_name, worker_count)
 
-    for index, row in enumerate(targets, start=1):
-        # 기본(unanalyzed) 모드에서만 기분석 건을 건너뛴다.
-        # --all / --id 는 사용자가 재분석을 명시한 것이므로 다시 호출한다.
-        if mode == "unanalyzed" and row["sentiment"] is not None:
-            skipped += 1
-            logger.debug("[%d/%d] ID=%s 이미 분석됨 — 건너뜀", index, total, row["id"])
-            continue
+    def work(row):
+        return analyze_one(client, row["review_text"], row["rating"], row["lang"])
 
-        try:
-            result = analyze_one(client, row["review_text"], row["rating"], row["lang"])
-        except AIError as exc:
+    success = failed = 0
+    done = 0
+
+    # API 호출만 병렬로 돌리고, 저장은 주 스레드에서 순서대로 한다.
+    for row, result, error in map_concurrent(targets, work, workers=worker_count):
+        done += 1
+        if error is not None:
             failed += 1
-            logger.error("[%d/%d] ID=%s 분석 실패 — 건너뜁니다: %s", index, total, row["id"], exc)
+            logger.error("[%d/%d] ID=%s 분석 실패 — 건너뜁니다: %s",
+                         done, total, row["id"], error)
             continue
 
         db.save_sentiment(
@@ -175,10 +185,11 @@ def analyze_reviews(
         success += 1
         logger.info(
             "[%d/%d] ID=%s 분석 완료: %s (%.2f)",
-            index, total, row["id"], result["sentiment"], result["score"],
+            done, total, row["id"], result["sentiment"], result["score"],
         )
 
-    return {"target": total, "success": success, "failed": failed, "skipped": skipped}
+    return {"target": total, "success": success, "failed": failed,
+            "skipped": skipped, "usage": client.usage}
 
 
 # --------------------------------------------------------------------- CLI
@@ -201,9 +212,10 @@ def cmd_analyze(args, cfg: dict[str, Any]) -> int:
     try:
         with Database(db_path) as db:
             stats = analyze_reviews(
-                db, cfg, mock=args.mock, mode=mode,
-                review_id=args.id, limit=args.limit, **filters,
+                db, cfg, mock=args.mock, mode=mode, review_id=args.id,
+                limit=args.limit, workers=getattr(args, "workers", None), **filters,
             )
+            db.save_usage(stats["usage"].as_record("analyze"))
     except AIError as exc:
         logger.error("%s", exc)
         return 2
@@ -214,5 +226,6 @@ def cmd_analyze(args, cfg: dict[str, Any]) -> int:
             stats["success"], stats["failed"],
             f", {stats['skipped']}건 스킵(기분석)" if stats["skipped"] else "",
         )
+        logger.info("%s", stats["usage"].summary())
         logger.info("다음 단계: python main.py extract")
     return 0

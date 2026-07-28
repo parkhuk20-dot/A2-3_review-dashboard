@@ -179,8 +179,11 @@ def extract_insights(
     }
 
     extraction_id = db.save_extraction(record)
+    db.save_usage(client.usage.as_record("extract"))
     record["id"] = extraction_id
     logger.info("추출 완료 (extraction #%d)", extraction_id)
+    if client.usage.calls:
+        logger.info("%s", client.usage.summary())
     return record
 
 

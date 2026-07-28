@@ -34,6 +34,7 @@ HANDLERS: dict[str, tuple[str, str]] = {
     "alert": ("src.alert", "cmd_alert"),
     "compare": ("src.compare", "cmd_compare"),
     "mismatch": ("src.mismatch", "cmd_mismatch"),
+    "usage": ("src.ai.usage", "cmd_usage"),
 }
 
 
@@ -106,6 +107,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_analyze.add_argument("--limit", type=int, default=None, help="분석할 최대 건수")
     p_analyze.add_argument("--product", default=None, help="특정 제품의 리뷰만")
     p_analyze.add_argument("--lang", default=None, help="특정 언어의 리뷰만 (ko/en)")
+    p_analyze.add_argument("--workers", type=int, default=None,
+                           help="동시 호출 수 (기본: config.json, 1 이면 순차)")
 
     # --------------------------------------------------------------- extract
     p_extract = sub.add_parser("extract", help="AI 키워드 · 요약 · 개선 제안 추출")
@@ -128,6 +131,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_aspects.add_argument("--product", default=None)
     p_aspects.add_argument("--date-from", default=None)
     p_aspects.add_argument("--date-to", default=None)
+    p_aspects.add_argument("--workers", type=int, default=None,
+                           help="동시 호출 수 (기본: config.json, 1 이면 순차)")
 
     # ------------------------------------------------------------ list/show/stats
     p_list = sub.add_parser("list", help="리뷰 목록 조회 (필터 · 페이지네이션 · 정렬)")
@@ -198,6 +203,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_mismatch.add_argument("--product", default=None)
     p_mismatch.add_argument("--date-from", default=None)
     p_mismatch.add_argument("--date-to", default=None)
+
+    p_usage = sub.add_parser("usage", help="API 토큰 사용량 · 예상 비용 조회")
+    p_usage.add_argument("--limit", type=int, default=5, help="최근 실행 표시 수")
 
     p_compare = sub.add_parser("compare", help="[보너스] 제품 · 카테고리별 비교 분석")
     p_compare.add_argument("--by", choices=["product", "category"], default="product")
