@@ -3,11 +3,50 @@
   "import": {
     "default_encoding": "utf-8-sig",
     "column_aliases": {
-      "review_text": ["review_text", "review", "text", "content", "body", "리뷰", "리뷰내용", "내용", "후기"],
-      "rating": ["rating", "score", "star", "stars", "별점", "평점", "점수"],
-      "review_date": ["review_date", "date", "created_at", "written_at", "작성일", "날짜", "등록일"],
-      "product": ["product", "product_name", "item", "제품", "제품명", "상품", "상품명"],
-      "category": ["category", "cat", "카테고리", "분류"]
+      "review_text": [
+        "review_text",
+        "review",
+        "text",
+        "content",
+        "body",
+        "리뷰",
+        "리뷰내용",
+        "내용",
+        "후기"
+      ],
+      "rating": [
+        "rating",
+        "score",
+        "star",
+        "stars",
+        "별점",
+        "평점",
+        "점수"
+      ],
+      "review_date": [
+        "review_date",
+        "date",
+        "created_at",
+        "written_at",
+        "작성일",
+        "날짜",
+        "등록일"
+      ],
+      "product": [
+        "product",
+        "product_name",
+        "item",
+        "제품",
+        "제품명",
+        "상품",
+        "상품명"
+      ],
+      "category": [
+        "category",
+        "cat",
+        "카테고리",
+        "분류"
+      ]
     }
   },
   "clean": {
@@ -25,6 +64,17 @@
     "max_reviews_per_extraction": 80,
     "review_chars_for_extraction": 300
   },
+  "absa": {
+    "aspects": [
+      "배송",
+      "품질",
+      "가격",
+      "고객서비스",
+      "사용성",
+      "디자인"
+    ],
+    "min_mentions": 3
+  },
   "report": {
     "top_n": 5,
     "trend_unit": "week"
@@ -36,7 +86,10 @@
   },
   "viz": {
     "dpi": 130,
-    "figsize": [9, 5.5],
+    "figsize": [
+      9,
+      5.5
+    ],
     "palette": {
       "positive": "#2E86DE",
       "neutral": "#95A5A6",

@@ -73,6 +73,7 @@ CHART_CAPTIONS = {
     "sentiment_trend.png": "시간별 감정 추이",
     "rating_sentiment_matrix.png": "별점별 감정 분포",
     "product_comparison.png": "제품별 감정 비교",
+    "aspect_sentiment.png": "속성별 감정 분포",
 }
 
 

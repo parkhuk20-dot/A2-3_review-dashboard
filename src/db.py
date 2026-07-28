@@ -75,6 +75,18 @@ CREATE TABLE IF NOT EXISTS extractions (
     created_at      TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS aspects (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    review_id   INTEGER REFERENCES clean_reviews(id) ON DELETE CASCADE,
+    aspect      TEXT NOT NULL,
+    sentiment   TEXT NOT NULL,
+    score       REAL,
+    evidence    TEXT,
+    model       TEXT,
+    analyzed_at TEXT NOT NULL,
+    UNIQUE(review_id, aspect)
+);
+
 CREATE TABLE IF NOT EXISTS import_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     source_file TEXT,
@@ -88,6 +100,7 @@ CREATE INDEX IF NOT EXISTS idx_clean_date    ON clean_reviews(review_date);
 CREATE INDEX IF NOT EXISTS idx_clean_product ON clean_reviews(product);
 CREATE INDEX IF NOT EXISTS idx_raw_cleaned   ON raw_reviews(is_cleaned);
 CREATE INDEX IF NOT EXISTS idx_sent_label    ON sentiments(sentiment);
+CREATE INDEX IF NOT EXISTS idx_aspect_name   ON aspects(aspect);
 """
 
 # list/show/dashboard 가 모두 같은 조인 기준을 쓰도록 한 곳에 모아둔다.
@@ -251,6 +264,103 @@ class Database:
             (review_id, sentiment, score, keywords, model, now()),
         )
         self.conn.commit()
+
+    # ------------------------------------------------------ 속성별 감정 저장
+
+    def save_aspects(self, review_id: int, aspects: list[dict[str, Any]], model: str) -> int:
+        """리뷰 하나의 속성별 감정을 저장한다.
+
+        재분석 시 이전 결과를 지우고 새로 넣는다. UPSERT 로 하면 이번에 안 나온
+        속성이 예전 값 그대로 남아 유령 데이터가 되기 때문이다.
+        """
+        self.conn.execute("DELETE FROM aspects WHERE review_id = ?", (review_id,))
+        saved = 0
+        for item in aspects:
+            self.conn.execute(
+                """
+                INSERT OR IGNORE INTO aspects
+                    (review_id, aspect, sentiment, score, evidence, model, analyzed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (review_id, item["aspect"], item["sentiment"], item.get("score"),
+                 item.get("evidence"), model, now()),
+            )
+            saved += 1
+        self.conn.commit()
+        return saved
+
+    def fetch_for_aspect_analysis(
+        self, mode: str = "unanalyzed", review_id: int | None = None,
+        limit: int | None = None, **filters,
+    ) -> list[sqlite3.Row]:
+        """속성 분석 대상을 고른다. 'unanalyzed' 는 속성 결과가 없는 리뷰만."""
+        if mode == "id":
+            if review_id is None:
+                return []
+            row = self.get_review(review_id)
+            return [row] if row else []
+
+        where, params = self._build_filters(**filters)
+        sql = _BASE_SELECT + where
+        if mode == "unanalyzed":
+            joiner = " AND " if where else " WHERE "
+            sql += f"{joiner}NOT EXISTS (SELECT 1 FROM aspects a WHERE a.review_id = c.id)"
+        sql += " ORDER BY c.id ASC"
+
+        if limit is not None:
+            sql += " LIMIT ?"
+            params = params + [limit]
+
+        return self.conn.execute(sql, params).fetchall()
+
+    def aspect_stats(self, **filters) -> list[dict[str, Any]]:
+        """속성별 언급 수와 감정 분포.
+
+        순감정(net) = (긍정 - 부정) / 언급 수 → -1.0 ~ +1.0.
+        언급량과 함께 보면 '무엇부터 고쳐야 하는지'가 바로 나온다.
+        """
+        where, params = self._build_filters(**filters)
+        sql = f"""
+            SELECT a.aspect AS aspect,
+                   COUNT(*) AS mentions,
+                   SUM(CASE WHEN a.sentiment = 'positive' THEN 1 ELSE 0 END) AS positive,
+                   SUM(CASE WHEN a.sentiment = 'neutral'  THEN 1 ELSE 0 END) AS neutral,
+                   SUM(CASE WHEN a.sentiment = 'negative' THEN 1 ELSE 0 END) AS negative
+              FROM clean_reviews c
+              JOIN aspects a ON a.review_id = c.id
+              LEFT JOIN sentiments s ON s.review_id = c.id
+              {where}
+             GROUP BY a.aspect
+             ORDER BY mentions DESC
+        """
+        rows = []
+        for row in self.conn.execute(sql, params).fetchall():
+            item = dict(row)
+            mentions = item["mentions"] or 1
+            item["net"] = (item["positive"] - item["negative"]) / mentions
+            item["negative_rate"] = item["negative"] / mentions * 100
+            rows.append(item)
+        return rows
+
+    def aspect_examples(self, aspect: str, sentiment: str, limit: int = 3, **filters) -> list[sqlite3.Row]:
+        """특정 속성·감정의 실제 근거 구절. 지표 옆에 원문을 붙이기 위함."""
+        where, params = self._build_filters(**filters)
+        joiner = " AND " if where else " WHERE "
+        sql = (
+            "SELECT c.id, a.evidence, c.review_text, c.rating "
+            "FROM clean_reviews c JOIN aspects a ON a.review_id = c.id "
+            "LEFT JOIN sentiments s ON s.review_id = c.id"
+            + where
+            + f"{joiner}a.aspect = ? AND a.sentiment = ? ORDER BY c.id LIMIT ?"
+        )
+        return self.conn.execute(sql, params + [aspect, sentiment, limit]).fetchall()
+
+    def aspect_coverage(self) -> dict[str, int]:
+        """속성 분석이 끝난 리뷰 수와 총 속성 건수."""
+        return {
+            "reviews": int(self.scalar("SELECT COUNT(DISTINCT review_id) FROM aspects") or 0),
+            "rows": int(self.scalar("SELECT COUNT(*) FROM aspects") or 0),
+        }
 
     def save_extraction(self, record: dict[str, Any]) -> int:
         cur = self.conn.execute(

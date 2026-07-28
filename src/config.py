@@ -47,6 +47,10 @@ DEFAULTS: dict[str, Any] = {
         "max_reviews_per_extraction": 80,
         "review_chars_for_extraction": 300,
     },
+    "absa": {
+        "aspects": ["배송", "품질", "가격", "고객서비스", "사용성", "디자인"],
+        "min_mentions": 3,
+    },
     "report": {"top_n": 5, "trend_unit": "week"},
     "alert": {"days": 7, "threshold": 1.5, "min_reviews": 5},
     "viz": {

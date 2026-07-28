@@ -25,6 +25,7 @@ HANDLERS: dict[str, tuple[str, str]] = {
     "clean": ("src.cleaner", "cmd_clean"),
     "analyze": ("src.ai.sentiment", "cmd_analyze"),
     "extract": ("src.ai.extractor", "cmd_extract"),
+    "aspects": ("src.ai.aspects", "cmd_aspects"),
     "list": ("src.viewer", "cmd_list"),
     "show": ("src.viewer", "cmd_show"),
     "stats": ("src.viewer", "cmd_stats"),
@@ -114,6 +115,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_extract.add_argument("--date-from", default=None, help="시작일 (YYYY-MM-DD)")
     p_extract.add_argument("--date-to", default=None, help="종료일 (YYYY-MM-DD)")
     p_extract.add_argument("--limit", type=int, default=None, help="AI 에 넘길 최대 리뷰 수")
+
+    # --------------------------------------------------------------- aspects
+    p_aspects = sub.add_parser(
+        "aspects", help="속성별(배송·품질·가격…) 감정 분석 — 옵션 없이 쓰면 집계만 출력")
+    aspect_target = p_aspects.add_mutually_exclusive_group()
+    aspect_target.add_argument("--all", action="store_true", help="전체 리뷰 재분석")
+    aspect_target.add_argument("--unanalyzed", action="store_true",
+                               help="아직 속성 분석하지 않은 리뷰만")
+    aspect_target.add_argument("--id", type=int, default=None, help="특정 리뷰 1건만")
+    p_aspects.add_argument("--limit", type=int, default=None, help="분석할 최대 건수")
+    p_aspects.add_argument("--product", default=None)
+    p_aspects.add_argument("--date-from", default=None)
+    p_aspects.add_argument("--date-to", default=None)
 
     # ------------------------------------------------------------ list/show/stats
     p_list = sub.add_parser("list", help="리뷰 목록 조회 (필터 · 페이지네이션 · 정렬)")

@@ -15,6 +15,7 @@ from typing import Any
 
 from src import alert as alert_module
 from src import config as config_module
+from src.ai import aspects as aspects_module
 from src import mismatch as mismatch_module
 from src import visualize
 from src.db import Database
@@ -175,6 +176,20 @@ def build_report(
     for line in mismatch_module.build_lines(mismatch_result, top_n=top_n):
         add(line)
     add("")
+
+    # ------------------------------------------------------ 속성별 감정(ABSA)
+    # 리뷰 전체 감정 하나로는 안 보이는 "무엇이 문제인지"를 드러내는 구간.
+    aspect_stats = db.aspect_stats(**filters)
+    if aspect_stats:
+        add("## 속성별 감정")
+        add("")
+        add("```")
+        for line in aspects_module.build_lines(
+            aspect_stats, min_mentions=cfg.get("absa", {}).get("min_mentions", 1)
+        ):
+            add(line)
+        add("```")
+        add("")
 
     # -------------------------------------------------------------- TOP N
     positive_keywords = keyword_counter(db, "positive", top_n, **filters)

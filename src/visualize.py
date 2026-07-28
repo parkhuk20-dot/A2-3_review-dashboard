@@ -261,6 +261,55 @@ def chart_product_comparison(
     return _save(fig, out_dir / f"{suffix}_comparison.png", viz.get("dpi", 130))
 
 
+def chart_aspect_sentiment(
+    stats: list[dict[str, Any]], out_dir: Path, cfg: dict[str, Any]
+) -> Path | None:
+    """⑤ 속성별 감정 분포 (가로 누적 막대 + 순감정 라벨).
+
+    전체 감정 하나로는 안 보이는 "무엇이 문제인지"를 드러내는 차트다.
+    순감정이 나쁜 속성이 위로 오도록 정렬해 눈이 먼저 가게 한다.
+    """
+    if not stats:
+        logger.warning("속성별 감정 차트: 분석 결과가 없어 건너뜁니다.")
+        return None
+
+    setup_korean_font()
+    palette = _palette(cfg)
+    viz = cfg.get("viz", {})
+
+    # barh 는 첫 항목을 아래에 그린다. 순감정 내림차순으로 넣으면 나쁜 쪽이 위로 온다.
+    ordered = sorted(stats, key=lambda s: s["net"], reverse=True)
+    names = [s["aspect"] for s in ordered]
+    positions = range(len(ordered))
+
+    figsize = viz.get("figsize", [9, 5.5])
+    fig, ax = plt.subplots(figsize=(figsize[0], max(3.0, len(ordered) * 0.62 + 1.6)))
+
+    left = [0] * len(ordered)
+    for sentiment in ("positive", "neutral", "negative"):
+        values = [s[sentiment] or 0 for s in ordered]
+        ax.barh(
+            list(positions), values, left=left, height=0.6,
+            label=SENTIMENT_KO[sentiment], color=palette.get(sentiment, "#888888"),
+        )
+        left = [l + v for l, v in zip(left, values)]
+
+    for index, (item, total) in enumerate(zip(ordered, left)):
+        ax.text(total + max(left) * 0.015, index, f"순감정 {item['net']:+.2f}",
+                va="center", fontsize=10)
+
+    ax.set_title("속성별 감정 분포", fontsize=15, pad=15)
+    ax.set_xlabel("언급 수")
+    ax.set_yticks(list(positions))
+    ax.set_yticklabels(names)
+    ax.set_xlim(0, max(left) * 1.25 if left else 1)
+    ax.legend(loc="lower right")
+    ax.grid(axis="x", alpha=0.3)
+    ax.set_axisbelow(True)
+
+    return _save(fig, out_dir / "aspect_sentiment.png", viz.get("dpi", 130))
+
+
 def generate_all(
     db, cfg: dict[str, Any], out_dir: Path, trend_unit: str | None = None, **filters
 ) -> list[Path]:
@@ -277,6 +326,8 @@ def generate_all(
             db.rating_sentiment_matrix(**filters), out_dir, cfg)),
         ("제품 비교", lambda: chart_product_comparison(
             db.product_stats(by="product", **filters), out_dir, cfg, by="product")),
+        ("속성별 감정", lambda: chart_aspect_sentiment(
+            db.aspect_stats(**filters), out_dir, cfg)),
     ]
 
     for name, builder in builders:
