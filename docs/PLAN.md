@@ -6,7 +6,7 @@
 
 - 목표: 고객 리뷰를 파일에서 수집 → 정제 → AI 감정 분석 → 키워드·요약 추출 → 대시보드 시각화·리포트·내보내기까지 잇는 **CLI 기반 리뷰 분석 서비스** (2026 Codyssey A2-3 과제)
 - 상태: **구현·검증 완료** (필수 13/13, 보너스 4/4, OpenAI 실호출까지 검증 완료)
-- 저장소: `~/Desktop/codyssey/A2-3` → https://github.com/parkhuk20-dot/A2-3 (public)
+- 저장소: `~/Desktop/codyssey/A2-3` → https://github.com/parkhuk20-dot/A2-3_review-dashboard (public)
 - 실행 환경: Python 3.12 (`.venv`) — 시스템 python3는 3.9라 과제 요구(3.10+) 미달
 - AI: OpenAI (`openai` SDK, `gpt-4o-mini`), 키는 `.env` 의 `OPENAI_API_KEY`
 - 데이터 입력: **파일 기반만** (CSV / Excel). 크롤링은 과제 제약상 금지
