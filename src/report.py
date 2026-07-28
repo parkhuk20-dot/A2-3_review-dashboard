@@ -15,6 +15,7 @@ from typing import Any
 
 from src import alert as alert_module
 from src import config as config_module
+from src import mismatch as mismatch_module
 from src import visualize
 from src.db import Database
 from src.viewer import SENTIMENT_KO, build_stats, stars
@@ -164,6 +165,15 @@ def build_report(
         else "- 평균 신뢰도 점수: -")
     add(f"- 결측률: 별점 없음 {metrics['missing_rating_rate']:.1f}%, "
         f"작성일 없음 {metrics['missing_date']}건")
+    add("")
+
+    # ------------------------------------------------- 별점–감정 불일치 상세
+    # 위 일치율의 '나머지'가 실제로 어떤 리뷰인지 — 별점 평균이 삼켜버리는 구간.
+    add("## 별점–감정 불일치")
+    add("")
+    mismatch_result = mismatch_module.find_mismatches(db, **filters)
+    for line in mismatch_module.build_lines(mismatch_result, top_n=top_n):
+        add(line)
     add("")
 
     # -------------------------------------------------------------- TOP N

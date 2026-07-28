@@ -32,6 +32,7 @@ HANDLERS: dict[str, tuple[str, str]] = {
     "export": ("src.exporter", "cmd_export"),
     "alert": ("src.alert", "cmd_alert"),
     "compare": ("src.compare", "cmd_compare"),
+    "mismatch": ("src.mismatch", "cmd_mismatch"),
 }
 
 
@@ -173,6 +174,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_alert.add_argument("--threshold", type=float, default=None,
                          help="직전 기간 대비 몇 배 이상이면 경고 (기본: config.json)")
     p_alert.add_argument("--product", default=None)
+
+    p_mismatch = sub.add_parser("mismatch", help="별점과 본문 감정이 어긋나는 리뷰 분석")
+    p_mismatch.add_argument("--kind", choices=["all", "hidden", "generous"], default="all",
+                            help="hidden=숨은 불만, generous=관대한 본문 (기본: all)")
+    p_mismatch.add_argument("--min-gap", type=int, choices=[1, 2], default=1,
+                            help="어긋난 폭 최소값 (2 = 긍정↔부정처럼 정반대인 경우만)")
+    p_mismatch.add_argument("--limit", type=int, default=10, help="출력할 리뷰 수")
+    p_mismatch.add_argument("--product", default=None)
+    p_mismatch.add_argument("--date-from", default=None)
+    p_mismatch.add_argument("--date-to", default=None)
 
     p_compare = sub.add_parser("compare", help="[보너스] 제품 · 카테고리별 비교 분석")
     p_compare.add_argument("--by", choices=["product", "category"], default="product")
